@@ -1,0 +1,12 @@
+# OS / editor
+Thumbs.db
+Desktop.ini
+.DS_Store
+*.swp
+.vscode/
+
+# Never commit any captured Claude state or credentials
+.claude/
+.claude.json
+*.credentials.json
+profiles.json
