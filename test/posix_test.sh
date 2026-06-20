@@ -47,4 +47,22 @@ grep -q "CLAUDE_CONFIG_DIR=<unset>" "$CC_TEST_OUT" && ok "default unsets var" ||
 
 cc_run nope 2>/dev/null && no "unknown profile errors" || ok "unknown profile errors"
 
+# --- Task 3: management ---
+_cc_new team "" --alias cct
+_cc_profile_dir team >/dev/null && ok "new creates profile" || no "new creates profile"
+_cc_alias_pairs | grep -qP '^cct\tteam$' && ok "new --alias stored" || no "new --alias stored"
+_cc_new bad --alias cct 2>/dev/null && no "duplicate alias rejected" || ok "duplicate alias rejected"
+_cc_alias_unset cct; _cc_alias_pairs | grep -qP '^cct\t' && no "unalias removes" || ok "unalias removes"
+_cc_alias_set ccteam team; _cc_alias_pairs | grep -qP '^ccteam\tteam$' && ok "alias add" || no "alias add"
+_cc_remove personal 2>/dev/null && no "refuse remove default" || ok "refuse remove default"
+_cc_remove team; _cc_profile_dir team >/dev/null 2>&1 && no "remove deletes profile" || ok "remove deletes profile"
+
+# --- Task 4: alias generation + dispatcher ---
+_cc_load_aliases
+type ccw >/dev/null 2>&1 && ok "ccw function generated" || no "ccw function generated"
+export CC_TEST_OUT="$TMP/out.alias"
+ccw --foo
+grep -q "CLAUDE_CONFIG_DIR=$HOME/.claude-work" "$CC_TEST_OUT" && ok "generated alias launches" || no "generated alias launches"
+cc-switch list >/dev/null 2>&1 && ok "dispatcher list works" || no "dispatcher list works"
+
 exit $fail
