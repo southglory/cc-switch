@@ -19,7 +19,7 @@
 
 Set-StrictMode -Version Latest
 
-$script:ConfigDir  = Join-Path $HOME '.cc-switch'
+$script:ConfigDir  = if ($env:CC_SWITCH_HOME) { $env:CC_SWITCH_HOME } else { Join-Path $HOME '.cc-switch' }
 $script:ConfigFile = Join-Path $script:ConfigDir 'profiles.json'
 
 # --- profile registry -------------------------------------------------------
@@ -29,17 +29,27 @@ function Get-CcProfiles {
     param()
     if (-not (Test-Path -LiteralPath $script:ConfigFile)) {
         $seed = [ordered]@{
-            version  = 1
+            version  = 2
             default  = 'personal'
             profiles = [ordered]@{
-                personal = [ordered]@{ dir = $null;                              desc = '개인 계정 (기본 ~/.claude)' }
-                work     = [ordered]@{ dir = (Join-Path $HOME '.claude-work');    desc = '회사 계정' }
+                personal = [ordered]@{ dir = $null;                           alias = 'ccp'; desc = 'Personal account (default ~/.claude)' }
+                work     = [ordered]@{ dir = (Join-Path $HOME '.claude-work'); alias = 'ccw'; desc = 'Work account' }
             }
         }
         Save-CcProfiles -Data $seed
         return $seed
     }
     $raw = Get-Content -Raw -LiteralPath $script:ConfigFile | ConvertFrom-Json -AsHashtable
+    if (-not $raw.ContainsKey('version') -or [int]$raw.version -lt 2) {
+        Copy-Item -LiteralPath $script:ConfigFile -Destination "$($script:ConfigFile).bak" -Force
+        foreach ($pair in @{ personal = 'ccp'; work = 'ccw' }.GetEnumerator()) {
+            if ($raw.profiles.ContainsKey($pair.Key) -and -not $raw.profiles[$pair.Key].ContainsKey('alias')) {
+                $raw.profiles[$pair.Key]['alias'] = $pair.Value
+            }
+        }
+        $raw['version'] = 2
+        Save-CcProfiles -Data $raw
+    }
     return $raw
 }
 
@@ -138,6 +148,7 @@ function Show-CcStatus {
         [pscustomobject]@{
             ' '     = if ($isActive) { '●' } else { ' ' }
             Profile = $name
+            Alias   = if ($p.alias) { $p.alias } else { '-' }
             Account = if ($email) { $email } else { '(not logged in)' }
             Dir     = if ([string]::IsNullOrEmpty($dir)) { "$HOME\.claude (default)" } else { $dir }
         }
@@ -150,16 +161,22 @@ function New-CcProfile {
     param(
         [Parameter(Mandatory, Position = 0)][string]$Name,
         [Parameter(Position = 1)][string]$Dir,
+        [string]$Alias = '',
         [string]$Desc = ''
     )
     $cfg = Get-CcProfiles
     if ($cfg.profiles.ContainsKey($Name)) { throw "Profile '$Name' already exists." }
+    if ($Alias) {
+        if ($Alias -notmatch '^[a-zA-Z][a-zA-Z0-9_-]*$') { throw "Invalid alias '$Alias'." }
+        foreach ($p in $cfg.profiles.Values) { if ($p.alias -eq $Alias) { throw "Alias '$Alias' is already in use." } }
+    }
     if ([string]::IsNullOrEmpty($Dir)) { $Dir = Join-Path $HOME ".claude-$Name" }
     New-Item -ItemType Directory -Force -Path $Dir | Out-Null
-    $cfg.profiles[$Name] = [ordered]@{ dir = $Dir; desc = $Desc }
+    $cfg.profiles[$Name] = [ordered]@{ dir = $Dir; alias = ($Alias ? $Alias : $null); desc = $Desc }
     Save-CcProfiles -Data $cfg
-    Write-Host "✔ Added profile '$Name' → $Dir" -ForegroundColor Green
-    Write-Host "  Launch it with:  Use-ClaudeProfile $Name   (then /login on first run)"
+    Register-CcAliases
+    Write-Host "✔ Added profile '$Name' → $Dir$(if ($Alias) { "  (alias: $Alias)" })" -ForegroundColor Green
+    Write-Host "  Launch it with:  $(if ($Alias) { $Alias } else { "ccx $Name" })   (then /login on first run)"
 }
 
 function Remove-CcProfile {
@@ -196,29 +213,66 @@ function Invoke-CcSwitch {
         'remove' { Remove-CcProfile @rest }
         'rm'     { Remove-CcProfile @rest }
         'run'    { Use-ClaudeProfile @rest }
+        'alias'   { Set-CcAlias @rest }
+        'unalias' { Remove-CcAlias @rest }
         'path'   { (Resolve-CcProfile -Name ([string]$rest[0])).dir }
         default  {
 @"
 cc-switch — multi-account launcher for Claude Code (Windows)
 
   cc-switch list                 list profiles + active account
-  cc-switch new <name> [dir]     register a new profile
+  cc-switch new <name> [dir] [-Alias <short>]   register a profile (+shortcut)
   cc-switch remove <name> [-Purge]  unregister (optionally delete its dir)
+  cc-switch alias <short> <name>    add/change a shortcut
+  cc-switch unalias <short>         drop a shortcut
   cc-switch run <name> [args]    launch claude under a profile
 
-Daily shortcuts:
-  ccp [args]    personal account
-  ccw [args]    work account
-  ccx <name> [args]   any profile
+Shortcuts are generated from the registry, e.g.  ccp  ccw  ccx <name>
 "@ | Write-Host
         }
     }
 }
 
-# --- daily shortcuts ---------------------------------------------------------
+# --- alias management + generation -------------------------------------------
 
-function ccp { [CmdletBinding()] param([Parameter(ValueFromRemainingArguments = $true)][object[]]$Rest) Use-ClaudeProfile -Name 'personal' @Rest }
-function ccw { [CmdletBinding()] param([Parameter(ValueFromRemainingArguments = $true)][object[]]$Rest) Use-ClaudeProfile -Name 'work'     @Rest }
+function Set-CcAlias {
+    [CmdletBinding()] param(
+        [Parameter(Mandatory, Position=0)][string]$Alias,
+        [Parameter(Mandatory, Position=1)][string]$Name)
+    if ($Alias -notmatch '^[a-zA-Z][a-zA-Z0-9_-]*$') { throw "Invalid alias '$Alias'." }
+    $cfg = Get-CcProfiles
+    if (-not $cfg.profiles.ContainsKey($Name)) { throw "Unknown profile '$Name'." }
+    foreach ($kv in $cfg.profiles.GetEnumerator()) {
+        if ($kv.Value.alias -eq $Alias -and $kv.Key -ne $Name) { throw "Alias '$Alias' already used by '$($kv.Key)'." }
+    }
+    if (Get-Command $Alias -ErrorAction SilentlyContinue) { Write-Host "note — '$Alias' shadows an existing command." -ForegroundColor Yellow }
+    $cfg.profiles[$Name].alias = $Alias
+    Save-CcProfiles -Data $cfg
+    Register-CcAliases
+}
+
+function Remove-CcAlias {
+    [CmdletBinding()] param([Parameter(Mandatory, Position=0)][string]$Alias)
+    $cfg = Get-CcProfiles
+    foreach ($p in $cfg.profiles.Values) { if ($p.alias -eq $Alias) { $p.alias = $null } }
+    Save-CcProfiles -Data $cfg
+    if (Test-Path "Function:\$Alias") { Remove-Item "Function:\$Alias" }
+    Register-CcAliases
+}
+
+# Generate one global function per aliased profile (replaces hard-coded ccp/ccw).
+function Register-CcAliases {
+    [CmdletBinding()] param()
+    $cfg = Get-CcProfiles
+    foreach ($kv in $cfg.profiles.GetEnumerator()) {
+        $alias = $kv.Value.alias
+        if (-not $alias) { continue }
+        $name = $kv.Key
+        $body = "param([Parameter(ValueFromRemainingArguments=`$true)][object[]]`$Rest) Use-ClaudeProfile -Name '$name' @Rest"
+        Set-Item -Path "Function:\global:$alias" -Value ([ScriptBlock]::Create($body))
+    }
+}
+
 function ccx {
     [CmdletBinding()]
     param(
@@ -230,7 +284,9 @@ function ccx {
 
 Set-Alias -Name cc-switch -Value Invoke-CcSwitch
 
+Register-CcAliases
+
 Export-ModuleMember -Function `
     Use-ClaudeProfile, Show-CcStatus, New-CcProfile, Remove-CcProfile, Invoke-CcSwitch, `
-    Get-CcProfiles, Get-CcAccountEmail, ccp, ccw, ccx `
+    Get-CcProfiles, Get-CcAccountEmail, Set-CcAlias, Remove-CcAlias, Register-CcAliases, ccx `
     -Alias cc-switch
