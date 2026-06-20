@@ -33,4 +33,18 @@ assert d["profiles"]["work"]["alias"]=="ccw"
 PY
 [ -f "$CC_SWITCH_HOME/profiles.json.bak" ] && ok "backup written" || no "backup written"
 
+# --- Task 2: launcher sets/unsets CLAUDE_CONFIG_DIR, restores parent env ---
+export CLAUDE_CONFIG_DIR="/parent/stays"     # parent env must be untouched
+export CC_TEST_OUT="$TMP/out.work"
+cc_run work --version
+grep -q "CLAUDE_CONFIG_DIR=$HOME/.claude-work" "$CC_TEST_OUT" && ok "work dir exported" || no "work dir exported"
+grep -q "ARGS=--version" "$CC_TEST_OUT" && ok "args passed" || no "args passed"
+[ "$CLAUDE_CONFIG_DIR" = "/parent/stays" ] && ok "parent env restored" || no "parent env restored"
+
+export CC_TEST_OUT="$TMP/out.personal"
+cc_run personal
+grep -q "CLAUDE_CONFIG_DIR=<unset>" "$CC_TEST_OUT" && ok "default unsets var" || no "default unsets var"
+
+cc_run nope 2>/dev/null && no "unknown profile errors" || ok "unknown profile errors"
+
 exit $fail
