@@ -1,0 +1,4 @@
+# Shell scripts must stay LF so they run on Linux/macOS even when authored on Windows.
+*.sh    text eol=lf
+cc-switch.sh text eol=lf
+install.sh   text eol=lf
