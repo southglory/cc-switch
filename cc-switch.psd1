@@ -1,6 +1,6 @@
 @{
     RootModule        = 'cc-switch.psm1'
-    ModuleVersion     = '0.2.0'
+    ModuleVersion     = '0.2.1'
     GUID              = 'b3f0c4d2-1a6e-4c2a-9b7e-0c8f9a2d1e44'
     Author            = 'southglory'
     Description       = 'Run multiple Claude Code accounts on one machine (Windows/macOS/Linux) via CLAUDE_CONFIG_DIR isolation, with user-defined launch shortcuts.'

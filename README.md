@@ -180,6 +180,11 @@ Your account directories (`~/.claude`, `~/.claude-work`, …) are left untouched
   points Claude Code at a different directory. Each account logs in once, itself.
 - This is a thin wrapper around one environment variable. If Claude Code ever
   ships native multi-account support, you won't need it — and that's fine.
+- **Works with the [Claude Multi-Account Status Bar](https://github.com/southglory/claude-usage-bar)
+  extension.** Adding an account there can register a shortcut in this tool's
+  registry. The installer writes a small `~/.cc-switch/installed.json` marker so the
+  extension can tell cc-switch is present — if you installed an older build, just
+  re-run the installer once (it's idempotent) to register it.
 
 ## License
 
