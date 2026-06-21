@@ -65,4 +65,11 @@ ccw --foo
 grep -q "CLAUDE_CONFIG_DIR=$HOME/.claude-work" "$CC_TEST_OUT" && ok "generated alias launches" || no "generated alias launches"
 cc-switch list >/dev/null 2>&1 && ok "dispatcher list works" || no "dispatcher list works"
 
+# --- install.sh writes the install marker ---
+IHOME="$(mktemp -d)"
+HOME="$IHOME" CC_SWITCH_HOME="$IHOME/.cc-switch" bash "$HERE/install.sh" >/dev/null 2>&1
+[ -f "$IHOME/.cc-switch/installed.json" ] && ok "install.sh writes marker" || no "install.sh writes marker"
+grep -q '"tool":"cc-switch"' "$IHOME/.cc-switch/installed.json" 2>/dev/null && ok "marker has tool field" || no "marker has tool field"
+rm -rf "$IHOME"
+
 exit $fail

@@ -43,6 +43,13 @@ if ($null -eq $content -or $content -notmatch [regex]::Escape($line)) {
 # 3. Seed the registry + load now --------------------------------------------
 Import-Module $moduleRoot\cc-switch.psm1 -Force
 Get-CcProfiles | Out-Null
+
+# 3b. Write an install marker so other tools (e.g. the Claude Multi-Account
+#     Status Bar extension) can tell cc-switch is actually installed.
+$ccDir = Join-Path $HOME '.cc-switch'
+if (-not (Test-Path $ccDir)) { New-Item -ItemType Directory -Force -Path $ccDir | Out-Null }
+@{ tool = 'cc-switch'; version = '0.2.1'; platform = 'windows' } |
+    ConvertTo-Json | Set-Content -LiteralPath (Join-Path $ccDir 'installed.json') -Encoding utf8
 Write-Host ""
 Write-Host "Done. Open a NEW terminal (or run: Import-Module cc-switch -Force), then:" -ForegroundColor Cyan
 Write-Host "  cc-switch list      # see profiles"
