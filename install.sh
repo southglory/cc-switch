@@ -9,7 +9,7 @@ echo "✔ Installed → $DEST/cc-switch.sh"
 
 # Install marker so other tools (e.g. the Claude Multi-Account Status Bar
 # extension) can tell cc-switch is actually installed.
-printf '{"tool":"cc-switch","version":"0.2.1","platform":"posix"}\n' > "$DEST/installed.json"
+printf '{"tool":"cc-switch","version":"0.2.2","platform":"posix"}\n' > "$DEST/installed.json"
 
 LINE="source \"$DEST/cc-switch.sh\""
 MARK="# cc-switch: multi-account Claude Code"

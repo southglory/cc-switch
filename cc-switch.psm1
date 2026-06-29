@@ -106,6 +106,12 @@ function Use-ClaudeProfile {
     )
     $p   = Resolve-CcProfile -Name $Name
     $dir = $p.dir
+    # Expand "~" / relative paths to an absolute filesystem path. PowerShell does NOT
+    # expand "~" when assigning to an env var, so a stored "~/.claude-work" would make
+    # Claude Code create a literal "~" folder in the cwd. (POSIX cc_run does the same.)
+    if (-not [string]::IsNullOrEmpty($dir)) {
+        $dir = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($dir)
+    }
 
     if (-not [string]::IsNullOrEmpty($dir) -and -not (Test-Path -LiteralPath $dir)) {
         New-Item -ItemType Directory -Force -Path $dir | Out-Null
