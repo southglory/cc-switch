@@ -48,7 +48,7 @@ Get-CcProfiles | Out-Null
 #     Status Bar extension) can tell cc-switch is actually installed.
 $ccDir = Join-Path $HOME '.cc-switch'
 if (-not (Test-Path $ccDir)) { New-Item -ItemType Directory -Force -Path $ccDir | Out-Null }
-@{ tool = 'cc-switch'; version = '0.2.1'; platform = 'windows' } |
+@{ tool = 'cc-switch'; version = '0.2.2'; platform = 'windows' } |
     ConvertTo-Json | Set-Content -LiteralPath (Join-Path $ccDir 'installed.json') -Encoding utf8
 Write-Host ""
 Write-Host "Done. Open a NEW terminal (or run: Import-Module cc-switch -Force), then:" -ForegroundColor Cyan
