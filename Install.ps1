@@ -13,16 +13,23 @@ param([switch]$Force)
 
 $ErrorActionPreference = 'Stop'
 $src = $PSScriptRoot
+$raw = 'https://raw.githubusercontent.com/southglory/cc-switch/main'
 
-# 1. Copy module to the user module path -------------------------------------
+# 1. Put the module on the user module path (local clone, or download if piped) -
 $moduleRoot = Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'PowerShell\Modules\cc-switch'
 if (Test-Path $moduleRoot) {
     if (-not $Force) { Write-Host "Updating existing install at $moduleRoot" }
     Remove-Item -Recurse -Force $moduleRoot
 }
 New-Item -ItemType Directory -Force -Path $moduleRoot | Out-Null
-Copy-Item (Join-Path $src 'cc-switch.psm1') $moduleRoot
-Copy-Item (Join-Path $src 'cc-switch.psd1') $moduleRoot -ErrorAction SilentlyContinue
+if ($src -and (Test-Path (Join-Path $src 'cc-switch.psm1'))) {
+    Copy-Item (Join-Path $src 'cc-switch.psm1') $moduleRoot
+    Copy-Item (Join-Path $src 'cc-switch.psd1') $moduleRoot -ErrorAction SilentlyContinue
+} else {
+    # Piped run (irm | iex): no local files — fetch them from GitHub.
+    Invoke-WebRequest "$raw/cc-switch.psm1" -OutFile (Join-Path $moduleRoot 'cc-switch.psm1') -UseBasicParsing
+    Invoke-WebRequest "$raw/cc-switch.psd1" -OutFile (Join-Path $moduleRoot 'cc-switch.psd1') -UseBasicParsing
+}
 Write-Host "✔ Installed module → $moduleRoot" -ForegroundColor Green
 
 # 2. Ensure the profile imports it -------------------------------------------
@@ -48,7 +55,7 @@ Get-CcProfiles | Out-Null
 #     Status Bar extension) can tell cc-switch is actually installed.
 $ccDir = Join-Path $HOME '.cc-switch'
 if (-not (Test-Path $ccDir)) { New-Item -ItemType Directory -Force -Path $ccDir | Out-Null }
-@{ tool = 'cc-switch'; version = '0.2.2'; platform = 'windows' } |
+@{ tool = 'cc-switch'; version = '0.2.3'; platform = 'windows' } |
     ConvertTo-Json | Set-Content -LiteralPath (Join-Path $ccDir 'installed.json') -Encoding utf8
 Write-Host ""
 Write-Host "Done. Open a NEW terminal (or run: Import-Module cc-switch -Force), then:" -ForegroundColor Cyan
