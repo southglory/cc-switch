@@ -48,29 +48,33 @@ once. Credentials, history, projects and memory are **never** shared.
 
 ## Install
 
-### macOS / Linux (bash · zsh)
+One line — no clone needed (the script downloads what it needs):
+
+**macOS / Linux** (bash · zsh; needs `curl` + `python3`):
 
 ```bash
-git clone https://github.com/southglory/cc-switch
-cd cc-switch
-bash install.sh
+curl -fsSL https://raw.githubusercontent.com/southglory/cc-switch/main/install.sh | bash
 ```
 
-Copies `cc-switch.sh` to `~/.cc-switch/` and adds a `source` line to your
-`~/.bashrc` / `~/.zshrc`. Open a new terminal afterward. (Requires `python3`,
-used to read the shared `profiles.json`.)
-
-### Windows (PowerShell 7+)
+**Windows** (PowerShell 7+):
 
 ```powershell
-git clone https://github.com/southglory/cc-switch
-cd cc-switch
-pwsh -File .\Install.ps1
+irm https://raw.githubusercontent.com/southglory/cc-switch/main/Install.ps1 | iex
 ```
 
-Copies the module to your user module path and adds `Import-Module cc-switch` to
-your PowerShell profile. Open a new terminal afterward. (Updating later = `git
-pull` then re-run the installer.)
+Open a new terminal afterward. It copies the launcher to `~/.cc-switch/` (POSIX)
+or your module path (Windows) and wires it into your shell profile. Re-run the
+same line to update. Prefer to read the code first? `curl … | less` — it's a
+small public script.
+
+<details><summary>From a clone (contributors / offline)</summary>
+
+```bash
+git clone https://github.com/southglory/cc-switch && cd cc-switch
+bash install.sh          # macOS / Linux
+pwsh -File .\Install.ps1 # Windows
+```
+</details>
 
 ## Use
 
