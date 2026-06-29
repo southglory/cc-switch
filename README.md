@@ -171,6 +171,7 @@ changed like any other.
 | `cc-switch unalias <short>` | drop a shortcut |
 | `cc-switch remove <name> [--purge]` | unregister (optionally delete its dir) |
 | `cc-switch run <name> [args]` | what the shortcuts call under the hood |
+| `cclocal [args]` | launch a **project-local** account in `$PWD/.cc-local` (not saved, not in `list`) |
 
 > On PowerShell the flags are `-Alias` / `-Purge`; on bash/zsh they are `--alias` / `--purge`.
 
