@@ -123,6 +123,26 @@ cc-switch remove client-x -Purge         # unregister and delete the dir
 The registry lives at `~/.cc-switch/profiles.json` — shared by the Windows and
 macOS/Linux versions.
 
+## Project-local accounts (`cclocal`)
+
+Named profiles above are **global** — the same account wherever you run them. For
+a throwaway account scoped to **one project folder**, use `cclocal`:
+
+```bash
+cd my-project
+cclocal                 # runs Claude with CLAUDE_CONFIG_DIR=my-project/.cc-local
+```
+
+- The config lives in **`./.cc-local`** (a cc-switch name, deliberately *not*
+  `.claude`, which Claude Code uses for project settings).
+- `cclocal` adds `.cc-local/` to the project's `.gitignore` so its credentials are
+  never committed.
+- It's **not a saved profile** — nothing is written to `~/.cc-switch/profiles.json`
+  and it never shows up in `cc-switch list`. First run: `/login` inside Claude.
+
+Use named profiles (`ccp`/`ccw`/`ccx`) for your accounts; use `cclocal` when you
+want a separate login bound to the current directory.
+
 ## Your own shortcuts
 
 `ccp` (personal) and `ccw` (work) are just seeded defaults — rename them or add

@@ -224,6 +224,30 @@ EOF
 
 ccx() { local n="$1"; shift 2>/dev/null || true; cc_run "$n" "$@"; }
 
+# Ensure <dir>/.gitignore ignores .cc-local/ (create or append; idempotent).
+_cc_gitignore_local() {
+  local gi="$1/.gitignore"
+  if [ ! -f "$gi" ]; then
+    printf '# cc-switch project-local account (keep out of git)\n.cc-local/\n' > "$gi" 2>/dev/null || true
+  elif ! grep -qxF '.cc-local/' "$gi" 2>/dev/null; then
+    printf '.cc-local/\n' >> "$gi" 2>/dev/null || true
+  fi
+}
+
+# Run Claude Code with a PROJECT-LOCAL config dir ($PWD/.cc-local), isolated per
+# directory. Not a registered profile — never in `cc-switch list`.
+cc_local() {
+  local dir="$PWD/.cc-local"
+  [ -d "$dir" ] || mkdir -p "$dir"
+  _cc_gitignore_local "$PWD"
+  if [ -z "$(_cc_account_email "$dir")" ]; then
+    printf '\033[33m\xe2\x84\xb9  Local account in ./.cc-local is not logged in yet \xe2\x80\x94 run /login inside Claude.\033[0m\n' >&2
+  fi
+  ( export CLAUDE_CONFIG_DIR="$dir"; command claude "$@" )
+}
+
+cclocal() { cc_local "$@"; }
+
 cc-switch() {
   local cmd="${1:-list}"; shift 2>/dev/null || true
   case "$cmd" in
@@ -231,6 +255,7 @@ cc-switch() {
     new)            _cc_new "$@";;
     remove|rm)      _cc_remove "$@";;
     run)            cc_run "$@";;
+    local)          cc_local "$@";;
     alias)          _cc_alias_set "$@";;
     unalias)        _cc_alias_unset "$@";;
     path)           _cc_profile_dir "$1";;
@@ -243,8 +268,10 @@ cc-switch — multi-account launcher for Claude Code (Linux/macOS)
   cc-switch alias <short> <name>      add/change a shortcut
   cc-switch unalias <short>           drop a shortcut
   cc-switch run <name> [args]         launch under a profile
+  cc-switch local [args]              launch a PROJECT-LOCAL account ($PWD/.cc-local)
 
 Shortcuts are generated from the registry, e.g.  ccp  ccw  ccx <name>
+Project-local (current dir only, not a saved profile):  cclocal
 HELP
     ;;
   esac

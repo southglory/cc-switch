@@ -219,6 +219,7 @@ function Invoke-CcSwitch {
         'remove' { Remove-CcProfile @rest }
         'rm'     { Remove-CcProfile @rest }
         'run'    { Use-ClaudeProfile @rest }
+        'local'  { cclocal @rest }
         'alias'   { Set-CcAlias @rest }
         'unalias' { Remove-CcAlias @rest }
         'path'   { (Resolve-CcProfile -Name ([string]$rest[0])).dir }
@@ -232,8 +233,10 @@ cc-switch — multi-account launcher for Claude Code (Windows)
   cc-switch alias <short> <name>    add/change a shortcut
   cc-switch unalias <short>         drop a shortcut
   cc-switch run <name> [args]    launch claude under a profile
+  cc-switch local [args]         launch a PROJECT-LOCAL account ($PWD/.cc-local)
 
 Shortcuts are generated from the registry, e.g.  ccp  ccw  ccx <name>
+Project-local (current dir only, not a saved profile):  cclocal
 "@ | Write-Host
         }
     }
@@ -288,11 +291,49 @@ function ccx {
     Use-ClaudeProfile -Name $Name @Rest
 }
 
+# --- project-local accounts -------------------------------------------------
+
+# Ensure <dir>/.gitignore ignores .cc-local/ (create or append; idempotent).
+function Set-CcLocalGitignore {
+    [CmdletBinding()] param([Parameter(Mandatory)][string]$Dir)
+    $gi = Join-Path $Dir '.gitignore'
+    try {
+        if (-not (Test-Path -LiteralPath $gi)) {
+            Set-Content -LiteralPath $gi -Encoding utf8 -Value @('# cc-switch project-local account (keep out of git)', '.cc-local/')
+        } elseif (-not (Select-String -LiteralPath $gi -SimpleMatch '.cc-local/' -Quiet)) {
+            Add-Content -LiteralPath $gi -Encoding utf8 -Value '.cc-local/'
+        }
+    } catch { Write-Host "note — could not update $gi ($($_.Exception.Message))" -ForegroundColor Yellow }
+}
+
+# Run Claude Code with a PROJECT-LOCAL config dir ($PWD/.cc-local), isolated per
+# directory. Not a registered profile — never appears in `cc-switch list`.
+function cclocal {
+    [CmdletBinding()]
+    param([Parameter(ValueFromRemainingArguments = $true)][object[]]$Rest)
+    $proj = (Get-Location).Path
+    $dir  = Join-Path $proj '.cc-local'
+    if (-not (Test-Path -LiteralPath $dir)) { New-Item -ItemType Directory -Force -Path $dir | Out-Null }
+    Set-CcLocalGitignore -Dir $proj
+    if ($null -eq (Get-CcAccountEmail -Dir $dir)) {
+        Write-Host "ℹ  Local account in ./.cc-local is not logged in yet — run /login inside Claude." -ForegroundColor Yellow
+    }
+    $had = Test-Path Env:\CLAUDE_CONFIG_DIR
+    $old = if ($had) { $env:CLAUDE_CONFIG_DIR } else { $null }
+    try {
+        $env:CLAUDE_CONFIG_DIR = $dir
+        if ($Rest) { & claude @Rest } else { & claude }
+    } finally {
+        if ($had) { $env:CLAUDE_CONFIG_DIR = $old }
+        elseif (Test-Path Env:\CLAUDE_CONFIG_DIR) { Remove-Item Env:\CLAUDE_CONFIG_DIR }
+    }
+}
+
 Set-Alias -Name cc-switch -Value Invoke-CcSwitch
 
 Register-CcAliases
 
 Export-ModuleMember -Function `
     Use-ClaudeProfile, Show-CcStatus, New-CcProfile, Remove-CcProfile, Invoke-CcSwitch, `
-    Get-CcProfiles, Get-CcAccountEmail, Set-CcAlias, Remove-CcAlias, Register-CcAliases, ccx `
+    Get-CcProfiles, Get-CcAccountEmail, Set-CcAlias, Remove-CcAlias, Register-CcAliases, ccx, cclocal `
     -Alias cc-switch

@@ -65,6 +65,17 @@ ccw --foo
 grep -q "CLAUDE_CONFIG_DIR=$HOME/.claude-work" "$CC_TEST_OUT" && ok "generated alias launches" || no "generated alias launches"
 cc-switch list >/dev/null 2>&1 && ok "dispatcher list works" || no "dispatcher list works"
 
+# --- cclocal: project-local account in $PWD/.cc-local + .gitignore safety ---
+PROJ="$TMP/proj"; mkdir -p "$PROJ"; cd "$PROJ"
+export CC_TEST_OUT="$TMP/out.local"
+cclocal --hi
+grep -q "CLAUDE_CONFIG_DIR=$PROJ/.cc-local" "$CC_TEST_OUT" && ok "cclocal exports \$PWD/.cc-local" || no "cclocal exports \$PWD/.cc-local"
+[ -d "$PROJ/.cc-local" ] && ok ".cc-local dir created" || no ".cc-local dir created"
+grep -qxF '.cc-local/' "$PROJ/.gitignore" && ok ".gitignore ignores .cc-local" || no ".gitignore ignores .cc-local"
+cclocal --hi   # second run must not duplicate the gitignore line
+[ "$(grep -cxF '.cc-local/' "$PROJ/.gitignore")" -eq 1 ] && ok "gitignore line not duplicated" || no "gitignore line not duplicated"
+cd "$TMP"
+
 # --- install.sh writes the install marker ---
 IHOME="$(mktemp -d)"
 HOME="$IHOME" CC_SWITCH_HOME="$IHOME/.cc-switch" bash "$HERE/install.sh" >/dev/null 2>&1
